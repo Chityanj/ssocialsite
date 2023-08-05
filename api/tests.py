@@ -1,99 +1,110 @@
 # app/tests.py
-
-from django.test import TestCase
-from rest_framework.test import APIClient
+from rest_framework.test import APITestCase
 from rest_framework import status
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import Post
 
-class APITestCase(TestCase):
-    def setUp(self):
-        self.client = APIClient()
+User = get_user_model()
 
-    def test_create_user(self):
-        response = self.client.post('/api/register/', {
-            'email': 'test@example.com',
-            'username': 'testuser',
-            'password': 'testpassword'
-        })
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_create_existing_user(self):
-        # Assuming a user with 'test@example.com' already exists
-        response = self.client.post('/api/register/', {
-            'email': 'test@example.com',
-            'username': 'testuser',
-            'password': 'testpassword'
-        })
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
+class AuthenticationAPITestCase(APITestCase):
     def test_authenticate_user(self):
-        response = self.client.post('/api/token/', {
-            'email': 'test@example.com',
-            'password': 'testpassword'
-        })
+        data = {'email': 'test@example.com', 'password': 'testpassword'}
+        response = self.client.post('/api/authenticate/', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access_token', response.data)
 
-    def test_authenticate_invalid_user(self):
-        response = self.client.post('/api/token/', {
-            'email': 'nonexistent@example.com',
-            'password': 'wrongpassword'
-        })
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    def test_authenticate_user_existing(self):
+        # Create a user first
+        user = User.objects.create_user(email='existing@example.com', username='existing@example.com', password='existingpassword')
+        data = {'email': 'existing@example.com', 'password': 'existingpassword'}
+        response = self.client.post('/api/authenticate/', data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access_token', response.data)
 
-    def test_create_post(self):
-        # Assuming you have a valid JWT token
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/posts/', {
-            'title': 'Test Post',
-            'description': 'This is a test post description'
-        })
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+class FollowUnfollowAPITestCase(APITestCase):
+    def setUp(self):
+        self.user1 = User.objects.create_user(email='user1@example.com', username='user1', password='user1password')
+        self.user2 = User.objects.create_user(email='user2@example.com', username='user2', password='user2password')
+        self.client1 = self.client_class()
+        self.client1.force_login(self.user1)
 
-    def test_create_post_missing_title(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/posts/', {
-            'description': 'This is a test post description'
-        })
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    # Add more test cases following a similar pattern
     def test_follow_user(self):
-        # Assuming you have a valid JWT token and user IDs
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/follow/2/')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_follow_nonexistent_user(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/follow/999/')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        response = self.client1.post(f'/api/follow/{self.user2.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user1.following.count(), 1)
 
     def test_unfollow_user(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/unfollow/2/')
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
-    def test_unfollow_nonexistent_user(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/unfollow/999/')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_get_user_profile(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.get('/api/user/')
+        self.user1.following.add(self.user2)
+        response = self.client1.post(f'/api/unfollow/{self.user2.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('username', response.data)
-        self.assertIn('followers', response.data)
-        self.assertIn('followings', response.data)
+        self.assertEqual(self.user1.following.count(), 0)
 
-    def test_create_and_delete_post(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer valid_jwt_token')
-        response = self.client.post('/api/posts/', {
-            'title': 'Test Post',
-            'description': 'This is a test post description'
-        })
+class PostAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email='test@example.com', username='testuser', password='testpassword')
+        self.refresh = RefreshToken.for_user(self.user)
+        self.access_token = str(self.refresh.access_token)
+
+    def authenticate(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
+
+    def test_create_post(self):
+        self.authenticate()
+
+        data = {'title': 'Test Post', 'description': 'This is a test post'}
+        response = self.client.post('/api/posts/', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        post_id = response.data['id']
+        self.assertEqual(Post.objects.count(), 1)
 
-        response = self.client.delete(f'/api/posts/{post_id}/')
+    def test_create_post_missing_fields(self):
+        self.authenticate()
+
+        data = {'title': 'Test Post'}
+        response = self.client.post('/api/posts/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Post.objects.count(), 0)
+
+    def test_get_all_posts(self):
+        # Create some test posts
+        Post.objects.create(title='Post 1', description='Description 1', author=self.user)
+        Post.objects.create(title='Post 2', description='Description 2', author=self.user)
+
+        response = self.client.get('/api/all_posts/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_get_single_post(self):
+        post = Post.objects.create(title='Test Post', description='This is a test post', author=self.user)
+
+        response = self.client.get(f'/api/posts/{post.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'Test Post')
+
+    def test_delete_post(self):
+        self.authenticate()
+
+        post = Post.objects.create(title='Test Post', description='This is a test post', author=self.user)
+
+        response = self.client.delete(f'/api/posts/{post.id}/')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Post.objects.count(), 0)
+
+    def test_like_post(self):
+        self.authenticate()
+
+        post = Post.objects.create(title='Test Post', description='This is a test post', author=self.user)
+
+        response = self.client.post(f'/api/like/{post.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(post.likes.count(), 1)
+
+    def test_unlike_post(self):
+        self.authenticate()
+
+        post = Post.objects.create(title='Test Post', description='This is a test post', author=self.user)
+        self.user.profile.liked_posts.add(post)
+
+        response = self.client.post(f'/api/unlike/{post.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(post.likes.count(), 0)  
