@@ -22,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '1s@yaq#igg2ij61$u^&2i^tmuzqxq318lh1((1&cal@oud@gn$'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -81,15 +81,13 @@ WSGI_APPLICATION = 'socialsite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'reunion_project',  # Database name
-        'USER': 'reunion_project_user',  # Database user
-        'PASSWORD': 'MH5oBpVaN1nTdAszLtze46dtYbrsD25N',  # Database password
-        'HOST': 'dpg-cj6statjeehc73brq7cg-a.oregon-postgres.render.com',  # Database host
-        'PORT': '',  # Leave empty for default port
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
     }
 }
-
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
