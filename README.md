@@ -73,7 +73,66 @@ Run the Django test cases:
 python manage.py test
 ```
 
-## API Endpoints
+## API Endpoints and Curls
+
+1. Get User Profile:
+```bash
+
+curl -X GET http://localhost:8000/api/user/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+2. Follow User:
+```bash
+curl -X POST http://localhost:8000/api/follow/<USER_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+
+3. Unfollow User:
+```bash
+
+curl -X POST http://localhost:8000/api/unfollow/<USER_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+4. Create Post:
+```bash
+
+curl -X POST http://localhost:8000/api/posts/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>" -d "title=New Post&description=This is a new post."
+```
+5. Delete Post:
+```bash
+curl -X DELETE http://localhost:8000/api/posts/<POST_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+6. Authenticate
+```bash
+curl -X POST http://localhost:8000/api/authenticate/ -d "email=user@example.com&password=yourpassword"
+
+```
+
+7. Like Post:
+```bash
+
+curl -X POST http://localhost:8000/api/like/<POST_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+8. Unlike Post:
+```bash
+
+curl -X POST http://localhost:8000/api/unlike/<POST_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+9. Add Comment to Post:
+
+```bash
+
+curl -X POST http://localhost:8000/api/comment/<POST_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>" -d "comment=This is a comment."
+```
+10. Get Single Post with Likes and Comments:
+```bash
+
+curl -X GET http://localhost:8000/api/posts/<POST_ID>/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+11. Get All Posts:
+```bash
+
+curl -X GET http://localhost:8000/api/all_posts/ -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+Remember to replace <YOUR_JWT_TOKEN> with a valid JWT token and <USER_ID
 
 ```
 POST /api/authenticate: User authentication and JWT token generation.
